@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>4-Shift Roster</title>
+
+<!-- PWA Meta Tags -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Roster">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d6efd">
+<meta name="description" content="4-Shift Roster Tracking App - 8 Day Cycle">
+
+<!-- PWA Manifest (inline) -->
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%224-Shift%20Roster%22%2C%22short_name%22%3A%22Roster%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffffff%22%2C%22theme_color%22%3A%22%230d6efd%22%2C%22orientation%22%3A%22portrait%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Crect%20width%3D'100'%20height%3D'100'%20rx%3D'20'%20fill%3D'%230d6efd'%2F%3E%3Ctext%20x%3D'50'%20y%3D'65'%20font-size%3D'50'%20text-anchor%3D'middle'%20fill%3D'white'%3E📅%3C%2Ftext%3E%3C%2Fsvg%3E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+
+<!-- Apple Touch Icon -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230d6efd'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>📅</text></svg>">
+
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#e9ecef;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;
+  user-select:none;
+  overscroll-behavior:none;
+}
+.app{
+  max-width:480px;
+  margin:0 auto;
+  background:#fff;
+  min-height:100vh;
+  min-height:100dvh;
+  padding:20px 16px;
+  padding-top:max(20px, env(safe-area-inset-top));
+  padding-bottom:max(20px, env(safe-area-inset-bottom));
+}
+.screen{display:none}
+.screen.active{display:block}
+h4,h5{font-weight:700}
+.btn-primary{
+  background:#0d6efd;
+  border:none;
+  border-radius:12px;
+  padding:14px;
+  font-weight:600;
+  width:100%;
+  color:#fff;
+  font-size:1rem;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn-primary:active{opacity:0.8;transform:scale(0.98)}
+.btn-nav{
+  width:38px;height:38px;
+  border-radius:50%;
+  border:2px solid #dee2e6;
+  background:#fff;
+  font-size:1.2rem;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn-nav:active{background:#f0f0f0}
+.dash-card{
+  background:#fff;
+  border:2px solid #e9ecef;
+  border-radius:16px;
+  padding:24px 12px;
+  text-align:center;
+  cursor:pointer;
+  transition:.2s;
+  -webkit-tap-highlight-color:transparent;
+}
+.dash-card:active{border-color:#0d6efd;transform:scale(0.97)}
+.dash-card .icon{font-size:2.2rem;margin-bottom:6px}
+.badge-shift{
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:8px;
+  font-weight:700;
+  font-size:.8rem;
+  text-align:center;
+  min-width:45px;
+}
+.shift-day{background:#FFE69C;color:#664d03}
+.shift-night{background:#B6D4FE;color:#084298}
+.shift-off{background:#DEE2E6;color:#495057}
+.master-table{border-radius:12px;overflow:hidden;border:1px solid #e9ecef}
+.master-header{
+  display:grid;
+  grid-template-columns:80px 1fr 1fr 1fr 1fr;
+  gap:4px;
+  padding:10px 8px;
+  background:#f8f9fa;
+  font-weight:700;
+  font-size:.7rem;
+  text-transform:uppercase;
+  color:#6c757d;
+  position:sticky;
+  top:0;
+  z-index:1;
+}
+.master-row{
+  display:grid;
+  grid-template-columns:80px 1fr 1fr 1fr 1fr;
+  gap:4px;
+  padding:9px 8px;
+  border-bottom:1px solid #f0f0f0;
+  align-items:center;
+  font-size:.85rem;
+}
+.master-date{font-weight:600;font-size:.8rem}
+.cal-weekdays{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  text-align:center;
+  font-weight:700;
+  font-size:.7rem;
+  color:#6c757d;
+  margin-bottom:4px;
+}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-cell{
+  aspect-ratio:1;
+  border-radius:10px;
+  padding:4px;
+  font-size:.75rem;
+  cursor:pointer;
+  border:2px solid transparent;
+  background:#f8f9fa;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  transition:.15s;
+  font-weight:500;
+  position:relative;
+  -webkit-tap-highlight-color:transparent;
+}
+.cal-cell:active{border-color:#0d6efd;transform:scale(0.95)}
+.cal-cell.today{border-color:#0d6efd!important}
+.cal-cell.day{background:#FFE69C}
+.cal-cell.night{background:#B6D4FE}
+.cal-cell.off{background:#DEE2E6;color:#666}
+.cal-num{font-weight:700;font-size:.9rem}
+.cal-shift{font-size:.6rem;font-weight:600}
+.note-dot{
+  position:absolute;
+  top:4px;right:5px;
+  width:7px;height:7px;
+  background:#dc3545;
+  border-radius:50%;
+}
+.month-nav{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin:10px 0 14px;
+}
+.month-title{font-size:1.1rem;font-weight:700}
+.shift-selector{
+  display:flex;
+  gap:4px;
+  margin-bottom:12px;
+  background:#f0f0f0;
+  border-radius:10px;
+  padding:4px;
+}
+.shift-btn{
+  flex:1;
+  padding:8px;
+  border:none;
+  border-radius:8px;
+  font-weight:600;
+  font-size:0.85rem;
+  cursor:pointer;
+  background:transparent;
+  color:#666;
+  transition:0.2s;
+}
+.shift-btn.active{
+  background:#0d6efd;
+  color:#fff;
+}
+.form-control,.form-select{
+  border-radius:10px;
+  border:2px solid #e9ecef;
+  padding:10px 12px;
+  font-size:.9rem;
+  width:100%;
+  -webkit-appearance:none;
+  appearance:none;
+}
+.form-control:focus,.form-select:focus{
+  border-color:#0d6efd;
+  outline:none;
+  box-shadow:0 0 0 3px rgba(13,110,253,0.1);
+}
+.form-label{font-weight:600;font-size:.8rem;margin-bottom:4px;display:block}
+.row{display:flex;flex-wrap:wrap;margin-left:-4px;margin-right:-4px}
+.col-6{width:50%;padding:4px}
+.mb-3{margin-bottom:12px}
+.mb-4{margin-bottom:20px}
+.mt-2{margin-top:8px}
+.mt-3{margin-top:16px}
+.d-flex{display:flex}
+.justify-content-between{justify-content:space-between}
+.align-items-center{align-items:center}
+.me-1{margin-right:4px}
+.me-2{margin-right:8px}
+.btn-sm{
+  padding:6px 12px;
+  font-size:.8rem;
+  border-radius:8px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn-sm:active{opacity:0.7}
+.btn-outline-secondary{border:1px solid #6c757d;color:#6c757d;background:#fff}
+.btn-outline-danger{border:1px solid #dc3545;color:#dc3545;background:#fff}
+.text-muted{color:#6c757d!important}
+.text-center{text-align:center}
+.fw-bold{font-weight:700}
+.w-100{width:100%}
+.p-3{padding:14px}
+.bg-light{background:#f8f9fa}
+.rounded-3{border-radius:12px}
+.small{font-size:.8rem}
+
+/* Install prompt */
+.install-banner{
+  display:none;
+  background:#0d6efd;
+  color:#fff;
+  padding:12px 16px;
+  border-radius:12px;
+  margin-bottom:16px;
+  text-align:center;
+  cursor:pointer;
+  font-weight:600;
+}
+.install-banner.show{display:block}
+.install-banner:active{opacity:0.8}
+
+/* Smooth scrolling */
+#masterContent{
+  max-height:55vh;
+  max-height:55dvh;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- Install Banner -->
+<div id="installBanner" class="install-banner" onclick="installApp()">
+  📲 Tap here to install this app
+</div>
+
+<!-- SCREEN 1: SETUP -->
+<div id="screenSetup" class="screen active">
+<h4 class="mb-3">⚙️ Roster Setup</h4>
+<div class="mb-3"><label class="form-label">Roster Start Date</label><input type="date" id="startDate" class="form-control"></div>
+<div class="mb-3"><label class="form-label">Forecast End Date</label><input type="date" id="endDate" class="form-control"></div>
+<p class="small text-muted mb-2">Starting position (1-8) for each crew:</p>
+<div class="row mb-3">
+<div class="col-6"><label class="form-label">Shift 1</label><select id="s1pos" class="form-select"></select></div>
+<div class="col-6"><label class="form-label">Shift 2</label><select id="s2pos" class="form-select"></select></div>
+<div class="col-6"><label class="form-label">Shift 3</label><select id="s3pos" class="form-select"></select></div>
+<div class="col-6"><label class="form-label">Shift 4</label><select id="s4pos" class="form-select"></select></div>
+</div>
+<button id="btnSaveConfig" class="btn-primary">💾 Save & Continue →</button>
+</div>
+
+<!-- SCREEN 2: DASHBOARD -->
+<div id="screenDashboard" class="screen">
+<div class="d-flex justify-content-between align-items-center mb-4">
+<h4>📋 Dashboard</h4>
+<div>
+<button id="btnExport" class="btn btn-sm btn-outline-secondary me-1">📥</button>
+<button id="btnReset" class="btn btn-sm btn-outline-danger">🔄</button>
+</div>
+</div>
+<div class="row">
+<div class="col-6"><div id="cardMaster" class="dash-card"><div class="icon">📊</div><h6>Master Table</h6><small class="text-muted">Monthly roster</small></div></div>
+<div class="col-6"><div id="cardCalendar" class="dash-card"><div class="icon">📅</div><h6>Calendar</h6><small class="text-muted">Grid + notes</small></div></div>
+</div>
+<div class="p-3 bg-light rounded-3 mt-3 small text-muted">⏱ 8-Day Cycle: <b>D1 → D2 → N1 → N2 → O1 → O2 → O3 → O4</b></div>
+</div>
+
+<!-- SCREEN 3A: MASTER TABLE -->
+<div id="screenMaster" class="screen">
+<div class="d-flex align-items-center mb-2"><button id="btnBackMaster" class="btn-nav me-2">←</button><h5>Master Roster</h5></div>
+<div class="month-nav"><button id="btnMasterPrev" class="btn-nav">‹</button><span id="masterMonthLabel" class="month-title"></span><button id="btnMasterNext" class="btn-nav">›</button></div>
+<div class="master-table"><div class="master-header"><span>Date</span><span>S1</span><span>S2</span><span>S3</span><span>S4</span></div><div id="masterContent"></div></div>
+</div>
+
+<!-- SCREEN 3B: CALENDAR -->
+<div id="screenCalendar" class="screen">
+<div class="d-flex align-items-center mb-2"><button id="btnBackCal" class="btn-nav me-2">←</button><h5>Calendar View</h5></div>
+<div class="shift-selector" id="shiftSelector">
+  <button class="shift-btn active" data-shift="s1">S1</button>
+  <button class="shift-btn" data-shift="s2">S2</button>
+  <button class="shift-btn" data-shift="s3">S3</button>
+  <button class="shift-btn" data-shift="s4">S4</button>
+</div>
+<div class="month-nav"><button id="btnCalPrev" class="btn-nav">‹</button><span id="calMonthLabel" class="month-title"></span><button id="btnCalNext" class="btn-nav">›</button></div>
+<div class="cal-weekdays"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+<div id="calGrid" class="cal-grid"></div>
+<p class="small text-muted mt-2">Tap day to add notes · 🔴 = note exists</p>
+</div>
+
+</div>
+
+<!-- NOTE MODAL -->
+<div class="modal fade" id="noteModal" tabindex="-1">
+<div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content" style="border-radius:16px"><div class="modal-header border-0"><h6 class="modal-title fw-bold" id="noteTitle"></h6><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><textarea id="noteInput" class="form-control" rows="3" placeholder="Your note..."></textarea></div><div class="modal-footer border-0"><button id="btnDeleteNote" class="btn btn-sm btn-outline-danger me-auto">🗑 Delete</button><button id="btnSaveNote" class="btn btn-sm btn-primary">Save</button></div></div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Service Worker Registration -->
+<script>
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('data:application/javascript,' + encodeURIComponent(
+    "const C='roster-v2';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting()});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(n=>n!==C).map(n=>caches.delete(n)))));self.clients.claim()});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res.ok){const clone=res.clone();caches.open(C).then(c=>c.put(e.request,clone))}return res}).catch(()=>caches.match(e.request))))});"
+  ));
+}
+</script>
+
+<!-- Main App Script -->
+<script>
+(function(){
+// Constants
+const CYCLE_NAMES = ["Day 1","Day 2","Night 1","Night 2","Off 1","Off 2","Off 3","Off 4"];
+const CYCLE_SHORT = ["D1","D2","N1","N2","O1","O2","O3","O4"];
+const CYCLE_TYPE  = ["day","day","night","night","off","off","off","off"];
+const STORAGE_KEY = "roster4shift";
+
+// State
+let config = {
+  start: '2025-01-06',
+  end: '2027-12-31',
+  s1: 1, s2: 2, s3: 3, s4: 4
+};
+let notes = {};
+let viewMonth = new Date();
+let selectedShift = 's1'; // which shift is displayed on calendar
+
+// PWA Install
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+
+window.installApp = function() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function(result) {
+      document.getElementById('installBanner').classList.remove('show');
+      deferredPrompt = null;
+    });
+  } else {
+    alert('To install: tap Share → Add to Home Screen');
+  }
+};
+
+window.addEventListener('appinstalled', function() {
+  document.getElementById('installBanner').classList.remove('show');
+  deferredPrompt = null;
+});
+
+// Helper functions
+function fmtDate(d) { return d.toISOString().slice(0,10); }
+function parseDate(s) { return new Date(s + 'T00:00:00'); }
+function daysBetween(d1, d2) { return Math.floor((d2 - d1) / 86400000); }
+
+function getShift(dateStr, crewPos) {
+  const startDate = parseDate(config.start);
+  const targetDate = parseDate(dateStr);
+  const diffDays = daysBetween(startDate, targetDate);
+  const index = ((crewPos - 1 + diffDays) % 8 + 8) % 8;
+  return {
+    name: CYCLE_NAMES[index],
+    short: CYCLE_SHORT[index],
+    type: CYCLE_TYPE[index]
+  };
+}
+
+// Storage
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ config: config, notes: notes }));
+}
+
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try {
+      const data = JSON.parse(raw);
+      config = data.config;
+      notes = data.notes || {};
+    } catch(e) {}
+  }
+  document.getElementById('startDate').value = config.start;
+  document.getElementById('endDate').value = config.end;
+  document.getElementById('s1pos').value = config.s1;
+  document.getElementById('s2pos').value = config.s2;
+  document.getElementById('s3pos').value = config.s3;
+  document.getElementById('s4pos').value = config.s4;
+  viewMonth = parseDate(config.start);
+}
+
+// Populate dropdowns
+function populateDropdowns() {
+  const options = CYCLE_NAMES.map(function(name, i) {
+    return '<option value="' + (i+1) + '">' + (i+1) + ' - ' + name + '</option>';
+  }).join('');
+  document.getElementById('s1pos').innerHTML = options;
+  document.getElementById('s2pos').innerHTML = options;
+  document.getElementById('s3pos').innerHTML = options;
+  document.getElementById('s4pos').innerHTML = options;
+}
+
+// Screen navigation
+function showScreen(id) {
+  var screens = ['screenSetup','screenDashboard','screenMaster','screenCalendar'];
+  screens.forEach(function(s) {
+    document.getElementById(s).classList.remove('active');
+  });
+  document.getElementById(id).classList.add('active');
+  if (id === 'screenMaster') renderMaster();
+  if (id === 'screenCalendar') renderCalendar();
+}
+
+// Render Master Table
+function renderMaster() {
+  var y = viewMonth.getFullYear();
+  var m = viewMonth.getMonth();
+  document.getElementById('masterMonthLabel').textContent = 
+    new Date(y, m).toLocaleString('default', {month:'long', year:'numeric'});
+  
+  var monthStart = new Date(y, m, 1);
+  var monthEnd = new Date(y, m+1, 0);
+  var rangeStart = new Date(Math.max(monthStart, parseDate(config.start)));
+  var rangeEnd = new Date(Math.min(monthEnd, parseDate(config.end)));
+  
+  var html = '';
+  if (rangeStart > rangeEnd) {
+    html = '<div style="padding:20px;text-align:center;color:#999">No shifts in this month</div>';
+  } else {
+    var cur = new Date(rangeStart);
+    while (cur <= rangeEnd) {
+      var ds = fmtDate(cur);
+      var s1 = getShift(ds, config.s1);
+      var s2 = getShift(ds, config.s2);
+      var s3 = getShift(ds, config.s3);
+      var s4 = getShift(ds, config.s4);
+      html += '<div class="master-row">' +
+        '<span class="master-date">' + cur.getDate() + ' ' + cur.toLocaleString('default',{month:'short'}) + '</span>' +
+        '<span class="badge-shift shift-' + s1.type + '">' + s1.short + '</span>' +
+        '<span class="badge-shift shift-' + s2.type + '">' + s2.short + '</span>' +
+        '<span class="badge-shift shift-' + s3.type + '">' + s3.short + '</span>' +
+        '<span class="badge-shift shift-' + s4.type + '">' + s4.short + '</span>' +
+        '</div>';
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+  document.getElementById('masterContent').innerHTML = html;
+}
+
+// Render Calendar (now depends on selectedShift)
+function renderCalendar() {
+  var y = viewMonth.getFullYear();
+  var m = viewMonth.getMonth();
+  document.getElementById('calMonthLabel').textContent = 
+    new Date(y, m).toLocaleString('default', {month:'long', year:'numeric'});
+  
+  var grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  
+  var firstDay = new Date(y, m, 1);
+  var lastDay = new Date(y, m+1, 0);
+  var startDow = (firstDay.getDay() + 6) % 7;
+  var todayStr = fmtDate(new Date());
+  
+  // Determine which position to use
+  var crewPos = config.s1; // default
+  if (selectedShift === 's1') crewPos = config.s1;
+  else if (selectedShift === 's2') crewPos = config.s2;
+  else if (selectedShift === 's3') crewPos = config.s3;
+  else if (selectedShift === 's4') crewPos = config.s4;
+  
+  for (var i = 0; i < startDow; i++) {
+    var empty = document.createElement('div');
+    grid.appendChild(empty);
+  }
+  
+  for (var d = 1; d <= lastDay.getDate(); d++) {
+    var date = new Date(y, m, d);
+    var ds = fmtDate(date);
+    var shift = getShift(ds, crewPos);
+    
+    var cell = document.createElement('div');
+    cell.className = 'cal-cell ' + shift.type;
+    if (ds === todayStr) cell.classList.add('today');
+    
+    cell.innerHTML = '<span class="cal-num">' + d + '</span><span class="cal-shift">' + shift.short + '</span>';
+    
+    if (notes[ds] && notes[ds].trim() !== '') {
+      var dot = document.createElement('span');
+      dot.className = 'note-dot';
+      cell.appendChild(dot);
+    }
+    
+    (function(dateStr) {
+      cell.addEventListener('click', function() { openNote(dateStr); });
+    })(ds);
+    
+    grid.appendChild(cell);
+  }
+}
+
+// Notes modal
+var currentNoteDate = null;
+var noteModal = new bootstrap.Modal(document.getElementById('noteModal'));
+
+function openNote(dateStr) {
+  currentNoteDate = dateStr;
+  document.getElementById('noteTitle').textContent = '📝 ' + dateStr;
+  document.getElementById('noteInput').value = notes[dateStr] || '';
+  noteModal.show();
+}
+
+// Shift selector handling
+document.getElementById('shiftSelector').addEventListener('click', function(e) {
+  if (e.target.classList.contains('shift-btn')) {
+    // Update active class
+    document.querySelectorAll('.shift-btn').forEach(function(btn) {
+      btn.classList.remove('active');
+    });
+    e.target.classList.add('active');
+    selectedShift = e.target.dataset.shift;
+    renderCalendar();
+  }
+});
+
+// Event Listeners
+document.getElementById('btnSaveNote').addEventListener('click', function() {
+  if (!currentNoteDate) return;
+  var text = document.getElementById('noteInput').value.trim();
+  if (text) {
+    notes[currentNoteDate] = text;
+  } else {
+    delete notes[currentNoteDate];
+  }
+  saveData();
+  noteModal.hide();
+  renderCalendar();
+});
+
+document.getElementById('btnDeleteNote').addEventListener('click', function() {
+  if (!currentNoteDate) return;
+  delete notes[currentNoteDate];
+  document.getElementById('noteInput').value = '';
+  saveData();
+  noteModal.hide();
+  renderCalendar();
+});
+
+document.getElementById('btnSaveConfig').addEventListener('click', function() {
+  config.start = document.getElementById('startDate').value;
+  config.end = document.getElementById('endDate').value;
+  config.s1 = parseInt(document.getElementById('s1pos').value);
+  config.s2 = parseInt(document.getElementById('s2pos').value);
+  config.s3 = parseInt(document.getElementById('s3pos').value);
+  config.s4 = parseInt(document.getElementById('s4pos').value);
+  
+  if (!config.start || !config.end) {
+    alert('Please fill both dates');
+    return;
+  }
+  if (parseDate(config.end) < parseDate(config.start)) {
+    alert('End date must be after start date');
+    return;
+  }
+  
+  saveData();
+  viewMonth = parseDate(config.start);
+  showScreen('screenDashboard');
+});
+
+document.getElementById('cardMaster').addEventListener('click', function() {
+  showScreen('screenMaster');
+});
+document.getElementById('cardCalendar').addEventListener('click', function() {
+  showScreen('screenCalendar');
+});
+document.getElementById('btnBackMaster').addEventListener('click', function() {
+  showScreen('screenDashboard');
+});
+document.getElementById('btnBackCal').addEventListener('click', function() {
+  showScreen('screenDashboard');
+});
+document.getElementById('btnMasterPrev').addEventListener('click', function() {
+  viewMonth.setMonth(viewMonth.getMonth() - 1);
+  renderMaster();
+});
+document.getElementById('btnMasterNext').addEventListener('click', function() {
+  viewMonth.setMonth(viewMonth.getMonth() + 1);
+  renderMaster();
+});
+document.getElementById('btnCalPrev').addEventListener('click', function() {
+  viewMonth.setMonth(viewMonth.getMonth() - 1);
+  renderCalendar();
+});
+document.getElementById('btnCalNext').addEventListener('click', function() {
+  viewMonth.setMonth(viewMonth.getMonth() + 1);
+  renderCalendar();
+});
+document.getElementById('btnReset').addEventListener('click', function() {
+  if (confirm('Yes - Go for reset? This will clear all settings and notes.')) {
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  }
+});
+document.getElementById('btnExport').addEventListener('click', function() {
+  var data = {
+    config: config,
+    notes: notes,
+    exportedAt: new Date().toISOString()
+  };
+  var blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'roster-' + fmtDate(new Date()) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+// Initialize
+populateDropdowns();
+loadData();
+
+if (!localStorage.getItem(STORAGE_KEY)) {
+  saveData();
+  showScreen('screenSetup');
+} else {
+  showScreen('screenDashboard');
+}
+
+})();
+</script>
+</body>
+</html>
