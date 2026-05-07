@@ -361,7 +361,7 @@ if('serviceWorker' in navigator) {
 }
 </script>
 
-<!-- Main App Script -->
+<!-- Main App Script (timezone‑safe) -->
 <script>
 (function(){
 // Constants
@@ -377,7 +377,7 @@ let config = {
   s1: 1, s2: 2, s3: 3, s4: 4
 };
 let notes = {};
-let viewMonth = new Date();
+let viewMonth = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1)); // start of current month in UTC
 let selectedShift = 's1';
 
 // PWA Install
@@ -405,10 +405,11 @@ window.addEventListener('appinstalled', function() {
   deferredPrompt = null;
 });
 
-// Helper functions
-function fmtDate(d) { return d.toISOString().slice(0,10); }
-function parseDate(s) { return new Date(s + 'T00:00:00'); }
-function daysBetween(d1, d2) { return Math.floor((d2 - d1) / 86400000); }
+// Helper functions (all UTC-based)
+function fmtDate(d) { return d.toISOString().slice(0,10); } // d must be a Date object (UTC or local, but we'll only use UTC)
+function utcDate(y, m, d) { return new Date(Date.UTC(y, m, d)); } // month 0‑based, UTC midnight
+function parseDate(s) { return new Date(s + 'T00:00:00Z'); } // force UTC
+function daysBetween(d1, d2) { return Math.floor((d2.getTime() - d1.getTime()) / 86400000); }
 
 function getShift(dateStr, crewPos) {
   const startDate = parseDate(config.start);
@@ -471,56 +472,57 @@ function showScreen(id) {
   }
 }
 
-// Render Master Table
+// Render Master Table (all dates in UTC)
 function renderMaster() {
-  var y = viewMonth.getFullYear();
-  var m = viewMonth.getMonth();
+  var y = viewMonth.getUTCFullYear();
+  var m = viewMonth.getUTCMonth(); // 0‑based
   document.getElementById('masterMonthLabel').textContent = 
-    new Date(y, m).toLocaleString('default', {month:'long', year:'numeric'});
+    new Date(Date.UTC(y, m)).toLocaleString('default', {month:'long', year:'numeric', timeZone:'UTC'});
   
-  var monthStart = new Date(y, m, 1);
-  var monthEnd = new Date(y, m+1, 0);
-  var rangeStart = new Date(Math.max(monthStart, parseDate(config.start)));
-  var rangeEnd = new Date(Math.min(monthEnd, parseDate(config.end)));
+  var monthStart = utcDate(y, m, 1);
+  var monthEnd = utcDate(y, m+1, 0); // last day of month
+  var rangeStart = new Date(Math.max(monthStart.getTime(), parseDate(config.start).getTime()));
+  var rangeEnd = new Date(Math.min(monthEnd.getTime(), parseDate(config.end).getTime()));
   
   var html = '';
-  if (rangeStart > rangeEnd) {
+  if (rangeStart.getTime() > rangeEnd.getTime()) {
     html = '<div style="padding:20px;text-align:center;color:#999">No shifts in this month</div>';
   } else {
     var cur = new Date(rangeStart);
-    while (cur <= rangeEnd) {
+    while (cur.getTime() <= rangeEnd.getTime()) {
       var ds = fmtDate(cur);
       var s1 = getShift(ds, config.s1);
       var s2 = getShift(ds, config.s2);
       var s3 = getShift(ds, config.s3);
       var s4 = getShift(ds, config.s4);
+      // Display local date for readability (but shift is based on UTC)
       html += '<div class="master-row">' +
-        '<span class="master-date">' + cur.getDate() + ' ' + cur.toLocaleString('default',{month:'short'}) + '</span>' +
+        '<span class="master-date">' + cur.getUTCDate() + ' ' + new Date(cur).toLocaleString('default',{month:'short', timeZone:'UTC'}) + '</span>' +
         '<span class="badge-shift shift-' + s1.type + '">' + s1.short + '</span>' +
         '<span class="badge-shift shift-' + s2.type + '">' + s2.short + '</span>' +
         '<span class="badge-shift shift-' + s3.type + '">' + s3.short + '</span>' +
         '<span class="badge-shift shift-' + s4.type + '">' + s4.short + '</span>' +
         '</div>';
-      cur.setDate(cur.getDate() + 1);
+      cur.setUTCDate(cur.getUTCDate() + 1);
     }
   }
   document.getElementById('masterContent').innerHTML = html;
 }
 
-// Render Calendar
+// Render Calendar (all dates in UTC)
 function renderCalendar() {
-  var y = viewMonth.getFullYear();
-  var m = viewMonth.getMonth();
+  var y = viewMonth.getUTCFullYear();
+  var m = viewMonth.getUTCMonth();
   document.getElementById('calMonthLabel').textContent = 
-    new Date(y, m).toLocaleString('default', {month:'long', year:'numeric'});
+    new Date(Date.UTC(y, m)).toLocaleString('default', {month:'long', year:'numeric', timeZone:'UTC'});
   
   var grid = document.getElementById('calGrid');
   grid.innerHTML = '';
   
-  var firstDay = new Date(y, m, 1);
-  var lastDay = new Date(y, m+1, 0);
-  var startDow = (firstDay.getDay() + 6) % 7;
-  var todayStr = fmtDate(new Date());
+  var firstDay = utcDate(y, m, 1);
+  var lastDay = utcDate(y, m+1, 0);
+  var startDow = (firstDay.getUTCDay() + 6) % 7; // Monday=0, using UTC day
+  var todayStr = fmtDate(new Date()); // current UTC date
   
   var crewPos = config.s1;
   if (selectedShift === 's1') crewPos = config.s1;
@@ -533,8 +535,8 @@ function renderCalendar() {
     grid.appendChild(empty);
   }
   
-  for (var d = 1; d <= lastDay.getDate(); d++) {
-    var date = new Date(y, m, d);
+  for (var d = 1; d <= lastDay.getUTCDate(); d++) {
+    var date = utcDate(y, m, d);
     var ds = fmtDate(date);
     var shift = getShift(ds, crewPos);
     
@@ -560,7 +562,7 @@ function renderCalendar() {
 
 // Update today's shift summary (all crews)
 function updateTodaySummary() {
-  var todayStr = fmtDate(new Date());
+  var todayStr = fmtDate(new Date()); // UTC today
   var s1 = getShift(todayStr, config.s1);
   var s2 = getShift(todayStr, config.s2);
   var s3 = getShift(todayStr, config.s3);
@@ -633,7 +635,7 @@ document.getElementById('btnSaveConfig').addEventListener('click', function() {
     alert('Please fill both dates');
     return;
   }
-  if (parseDate(config.end) < parseDate(config.start)) {
+  if (parseDate(config.end).getTime() < parseDate(config.start).getTime()) {
     alert('End date must be after start date');
     return;
   }
@@ -656,20 +658,20 @@ document.getElementById('btnBackCal').addEventListener('click', function() {
   showScreen('screenDashboard');
 });
 document.getElementById('btnMasterPrev').addEventListener('click', function() {
-  viewMonth.setMonth(viewMonth.getMonth() - 1);
+  viewMonth.setUTCMonth(viewMonth.getUTCMonth() - 1);
   renderMaster();
 });
 document.getElementById('btnMasterNext').addEventListener('click', function() {
-  viewMonth.setMonth(viewMonth.getMonth() + 1);
+  viewMonth.setUTCMonth(viewMonth.getUTCMonth() + 1);
   renderMaster();
 });
 document.getElementById('btnCalPrev').addEventListener('click', function() {
-  viewMonth.setMonth(viewMonth.getMonth() - 1);
+  viewMonth.setUTCMonth(viewMonth.getUTCMonth() - 1);
   renderCalendar();
   updateTodaySummary();
 });
 document.getElementById('btnCalNext').addEventListener('click', function() {
-  viewMonth.setMonth(viewMonth.getMonth() + 1);
+  viewMonth.setUTCMonth(viewMonth.getUTCMonth() + 1);
   renderCalendar();
   updateTodaySummary();
 });
@@ -699,8 +701,8 @@ document.getElementById('btnExport').addEventListener('click', function() {
 // Initialize
 populateDropdowns();
 loadData();
+viewMonth = parseDate(config.start); // ensure UTC
 
-// If no saved data, ensure start date is today
 if (!localStorage.getItem(STORAGE_KEY)) {
   config.start = fmtDate(new Date());
   document.getElementById('startDate').value = config.start;
