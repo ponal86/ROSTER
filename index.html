@@ -377,7 +377,7 @@ let config = {
   s1: 1, s2: 2, s3: 3, s4: 4
 };
 let notes = {};
-let viewMonth = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1)); // start of current month in UTC
+let viewMonth = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1)); // start of current month UTC
 let selectedShift = 's1';
 
 // PWA Install
@@ -405,10 +405,10 @@ window.addEventListener('appinstalled', function() {
   deferredPrompt = null;
 });
 
-// Helper functions (all UTC-based)
-function fmtDate(d) { return d.toISOString().slice(0,10); } // d must be a Date object (UTC or local, but we'll only use UTC)
-function utcDate(y, m, d) { return new Date(Date.UTC(y, m, d)); } // month 0‑based, UTC midnight
-function parseDate(s) { return new Date(s + 'T00:00:00Z'); } // force UTC
+// Helper functions (all UTC‑based)
+function fmtDate(d) { return d.toISOString().slice(0,10); }          // d is a Date
+function utcDate(y, m, d) { return new Date(Date.UTC(y, m, d)); }    // month 0‑based
+function parseDate(s) { return new Date(s + 'T00:00:00Z'); }          // force UTC midnight
 function daysBetween(d1, d2) { return Math.floor((d2.getTime() - d1.getTime()) / 86400000); }
 
 function getShift(dateStr, crewPos) {
@@ -437,7 +437,6 @@ function loadData() {
       notes = data.notes || {};
     } catch(e) {}
   }
-  // Update form fields
   document.getElementById('startDate').value = config.start;
   document.getElementById('endDate').value = config.end;
   document.getElementById('s1pos').value = config.s1;
@@ -476,14 +475,14 @@ function showScreen(id) {
 function renderMaster() {
   var y = viewMonth.getUTCFullYear();
   var m = viewMonth.getUTCMonth(); // 0‑based
-  document.getElementById('masterMonthLabel').textContent = 
+  document.getElementById('masterMonthLabel').textContent =
     new Date(Date.UTC(y, m)).toLocaleString('default', {month:'long', year:'numeric', timeZone:'UTC'});
-  
+
   var monthStart = utcDate(y, m, 1);
-  var monthEnd = utcDate(y, m+1, 0); // last day of month
+  var monthEnd   = utcDate(y, m+1, 0);
   var rangeStart = new Date(Math.max(monthStart.getTime(), parseDate(config.start).getTime()));
-  var rangeEnd = new Date(Math.min(monthEnd.getTime(), parseDate(config.end).getTime()));
-  
+  var rangeEnd   = new Date(Math.min(monthEnd.getTime(),   parseDate(config.end).getTime()));
+
   var html = '';
   if (rangeStart.getTime() > rangeEnd.getTime()) {
     html = '<div style="padding:20px;text-align:center;color:#999">No shifts in this month</div>';
@@ -495,9 +494,9 @@ function renderMaster() {
       var s2 = getShift(ds, config.s2);
       var s3 = getShift(ds, config.s3);
       var s4 = getShift(ds, config.s4);
-      // Display local date for readability (but shift is based on UTC)
       html += '<div class="master-row">' +
-        '<span class="master-date">' + cur.getUTCDate() + ' ' + new Date(cur).toLocaleString('default',{month:'short', timeZone:'UTC'}) + '</span>' +
+        '<span class="master-date">' + cur.getUTCDate() + ' ' +
+          new Date(cur).toLocaleString('default',{month:'short', timeZone:'UTC'}) + '</span>' +
         '<span class="badge-shift shift-' + s1.type + '">' + s1.short + '</span>' +
         '<span class="badge-shift shift-' + s2.type + '">' + s2.short + '</span>' +
         '<span class="badge-shift shift-' + s3.type + '">' + s3.short + '</span>' +
@@ -513,56 +512,55 @@ function renderMaster() {
 function renderCalendar() {
   var y = viewMonth.getUTCFullYear();
   var m = viewMonth.getUTCMonth();
-  document.getElementById('calMonthLabel').textContent = 
+  document.getElementById('calMonthLabel').textContent =
     new Date(Date.UTC(y, m)).toLocaleString('default', {month:'long', year:'numeric', timeZone:'UTC'});
-  
+
   var grid = document.getElementById('calGrid');
   grid.innerHTML = '';
-  
+
   var firstDay = utcDate(y, m, 1);
-  var lastDay = utcDate(y, m+1, 0);
-  var startDow = (firstDay.getUTCDay() + 6) % 7; // Monday=0, using UTC day
-  var todayStr = fmtDate(new Date()); // current UTC date
-  
+  var lastDay  = utcDate(y, m+1, 0);
+  var startDow = (firstDay.getUTCDay() + 6) % 7;  // Monday = 0, UTC
+  var todayStr = fmtDate(new Date());               // current UTC date
+
   var crewPos = config.s1;
   if (selectedShift === 's1') crewPos = config.s1;
   else if (selectedShift === 's2') crewPos = config.s2;
   else if (selectedShift === 's3') crewPos = config.s3;
   else if (selectedShift === 's4') crewPos = config.s4;
-  
+
   for (var i = 0; i < startDow; i++) {
-    var empty = document.createElement('div');
-    grid.appendChild(empty);
+    grid.appendChild(document.createElement('div'));
   }
-  
+
   for (var d = 1; d <= lastDay.getUTCDate(); d++) {
     var date = utcDate(y, m, d);
     var ds = fmtDate(date);
     var shift = getShift(ds, crewPos);
-    
+
     var cell = document.createElement('div');
     cell.className = 'cal-cell ' + shift.type;
     if (ds === todayStr) cell.classList.add('today');
-    
+
     cell.innerHTML = '<span class="cal-num">' + d + '</span><span class="cal-shift">' + shift.short + '</span>';
-    
+
     if (notes[ds] && notes[ds].trim() !== '') {
       var dot = document.createElement('span');
       dot.className = 'note-dot';
       cell.appendChild(dot);
     }
-    
+
     (function(dateStr) {
       cell.addEventListener('click', function() { openNote(dateStr); });
     })(ds);
-    
+
     grid.appendChild(cell);
   }
 }
 
 // Update today's shift summary (all crews)
 function updateTodaySummary() {
-  var todayStr = fmtDate(new Date()); // UTC today
+  var todayStr = fmtDate(new Date());
   var s1 = getShift(todayStr, config.s1);
   var s2 = getShift(todayStr, config.s2);
   var s3 = getShift(todayStr, config.s3);
@@ -625,7 +623,7 @@ document.getElementById('btnDeleteNote').addEventListener('click', function() {
 
 document.getElementById('btnSaveConfig').addEventListener('click', function() {
   config.start = document.getElementById('startDate').value;
-  config.end = document.getElementById('endDate').value;
+  config.end   = document.getElementById('endDate').value;
   config.s1 = parseInt(document.getElementById('s1pos').value);
   config.s2 = parseInt(document.getElementById('s2pos').value);
   config.s3 = parseInt(document.getElementById('s3pos').value);
@@ -701,7 +699,7 @@ document.getElementById('btnExport').addEventListener('click', function() {
 // Initialize
 populateDropdowns();
 loadData();
-viewMonth = parseDate(config.start); // ensure UTC
+viewMonth = parseDate(config.start);   // ensure UTC
 
 if (!localStorage.getItem(STORAGE_KEY)) {
   config.start = fmtDate(new Date());
