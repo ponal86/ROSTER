@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>4-Shift Roster</title>
+<title>Roster8</title>
 
 <!-- PWA Meta Tags -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Roster">
+<meta name="apple-mobile-web-app-title" content="Roster8">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0d6efd">
-<meta name="description" content="4-Shift Roster Tracking App - 8 Day Cycle">
+<meta name="description" content="8-Day Cycle Roster - Track 4 shifts">
 
-<!-- PWA Manifest (inline) -->
-<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%224-Shift%20Roster%22%2C%22short_name%22%3A%22Roster%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffffff%22%2C%22theme_color%22%3A%22%230d6efd%22%2C%22orientation%22%3A%22portrait%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Crect%20width%3D'100'%20height%3D'100'%20rx%3D'20'%20fill%3D'%230d6efd'%2F%3E%3Ctext%20x%3D'50'%20y%3D'65'%20font-size%3D'50'%20text-anchor%3D'middle'%20fill%3D'white'%3E📅%3C%2Ftext%3E%3C%2Fsvg%3E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+<!-- Link to external manifest -->
+<link rel="manifest" href="manifest.json">
 
 <!-- Apple Touch Icon -->
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230d6efd'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>📅</text></svg>">
+<link rel="apple-touch-icon" href="icon.svg">
 
 <!-- Bootstrap CSS -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -192,6 +192,24 @@ h4,h5{font-weight:700}
   background:#0d6efd;
   color:#fff;
 }
+.today-summary{
+  margin-top:16px;
+  background:#f8f9fa;
+  border-radius:12px;
+  padding:14px;
+}
+.today-summary h6{
+  font-size:0.85rem;
+  margin-bottom:10px;
+  color:#333;
+}
+.today-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:6px;
+}
+.today-row:last-child{margin-bottom:0}
 .form-control,.form-select{
   border-radius:10px;
   border:2px solid #e9ecef;
@@ -319,6 +337,11 @@ h4,h5{font-weight:700}
 <div class="month-nav"><button id="btnCalPrev" class="btn-nav">‹</button><span id="calMonthLabel" class="month-title"></span><button id="btnCalNext" class="btn-nav">›</button></div>
 <div class="cal-weekdays"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
 <div id="calGrid" class="cal-grid"></div>
+<!-- Today's shift summary (all crews) -->
+<div id="todaySummary" class="today-summary">
+  <h6>📌 Today's Shifts</h6>
+  <div id="todayContent"></div>
+</div>
 <p class="small text-muted mt-2">Tap day to add notes · 🔴 = note exists</p>
 </div>
 
@@ -331,12 +354,10 @@ h4,h5{font-weight:700}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Service Worker Registration -->
+<!-- Service Worker Registration (now using sw.js) -->
 <script>
 if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('data:application/javascript,' + encodeURIComponent(
-    "const C='roster-v2';self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));self.skipWaiting()});self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(n=>n!==C).map(n=>caches.delete(n)))));self.clients.claim()});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res.ok){const clone=res.clone();caches.open(C).then(c=>c.put(e.request,clone))}return res}).catch(()=>caches.match(e.request))))});"
-  ));
+  navigator.serviceWorker.register('sw.js');
 }
 </script>
 
@@ -351,13 +372,13 @@ const STORAGE_KEY = "roster4shift";
 
 // State
 let config = {
-  start: '2025-01-06',
+  start: new Date().toISOString().slice(0,10), // TODAY as default
   end: '2027-12-31',
   s1: 1, s2: 2, s3: 3, s4: 4
 };
 let notes = {};
 let viewMonth = new Date();
-let selectedShift = 's1'; // which shift is displayed on calendar
+let selectedShift = 's1';
 
 // PWA Install
 let deferredPrompt = null;
@@ -415,6 +436,7 @@ function loadData() {
       notes = data.notes || {};
     } catch(e) {}
   }
+  // Update form fields
   document.getElementById('startDate').value = config.start;
   document.getElementById('endDate').value = config.end;
   document.getElementById('s1pos').value = config.s1;
@@ -443,7 +465,10 @@ function showScreen(id) {
   });
   document.getElementById(id).classList.add('active');
   if (id === 'screenMaster') renderMaster();
-  if (id === 'screenCalendar') renderCalendar();
+  if (id === 'screenCalendar') {
+    renderCalendar();
+    updateTodaySummary();
+  }
 }
 
 // Render Master Table
@@ -482,7 +507,7 @@ function renderMaster() {
   document.getElementById('masterContent').innerHTML = html;
 }
 
-// Render Calendar (now depends on selectedShift)
+// Render Calendar
 function renderCalendar() {
   var y = viewMonth.getFullYear();
   var m = viewMonth.getMonth();
@@ -497,8 +522,7 @@ function renderCalendar() {
   var startDow = (firstDay.getDay() + 6) % 7;
   var todayStr = fmtDate(new Date());
   
-  // Determine which position to use
-  var crewPos = config.s1; // default
+  var crewPos = config.s1;
   if (selectedShift === 's1') crewPos = config.s1;
   else if (selectedShift === 's2') crewPos = config.s2;
   else if (selectedShift === 's3') crewPos = config.s3;
@@ -534,6 +558,21 @@ function renderCalendar() {
   }
 }
 
+// Update today's shift summary (all crews)
+function updateTodaySummary() {
+  var todayStr = fmtDate(new Date());
+  var s1 = getShift(todayStr, config.s1);
+  var s2 = getShift(todayStr, config.s2);
+  var s3 = getShift(todayStr, config.s3);
+  var s4 = getShift(todayStr, config.s4);
+  var html = '';
+  html += '<div class="today-row"><span>S1</span><span class="badge-shift shift-' + s1.type + '">' + s1.short + '</span></div>';
+  html += '<div class="today-row"><span>S2</span><span class="badge-shift shift-' + s2.type + '">' + s2.short + '</span></div>';
+  html += '<div class="today-row"><span>S3</span><span class="badge-shift shift-' + s3.type + '">' + s3.short + '</span></div>';
+  html += '<div class="today-row"><span>S4</span><span class="badge-shift shift-' + s4.type + '">' + s4.short + '</span></div>';
+  document.getElementById('todayContent').innerHTML = html;
+}
+
 // Notes modal
 var currentNoteDate = null;
 var noteModal = new bootstrap.Modal(document.getElementById('noteModal'));
@@ -548,7 +587,6 @@ function openNote(dateStr) {
 // Shift selector handling
 document.getElementById('shiftSelector').addEventListener('click', function(e) {
   if (e.target.classList.contains('shift-btn')) {
-    // Update active class
     document.querySelectorAll('.shift-btn').forEach(function(btn) {
       btn.classList.remove('active');
     });
@@ -570,6 +608,7 @@ document.getElementById('btnSaveNote').addEventListener('click', function() {
   saveData();
   noteModal.hide();
   renderCalendar();
+  updateTodaySummary();
 });
 
 document.getElementById('btnDeleteNote').addEventListener('click', function() {
@@ -579,6 +618,7 @@ document.getElementById('btnDeleteNote').addEventListener('click', function() {
   saveData();
   noteModal.hide();
   renderCalendar();
+  updateTodaySummary();
 });
 
 document.getElementById('btnSaveConfig').addEventListener('click', function() {
@@ -626,10 +666,12 @@ document.getElementById('btnMasterNext').addEventListener('click', function() {
 document.getElementById('btnCalPrev').addEventListener('click', function() {
   viewMonth.setMonth(viewMonth.getMonth() - 1);
   renderCalendar();
+  updateTodaySummary();
 });
 document.getElementById('btnCalNext').addEventListener('click', function() {
   viewMonth.setMonth(viewMonth.getMonth() + 1);
   renderCalendar();
+  updateTodaySummary();
 });
 document.getElementById('btnReset').addEventListener('click', function() {
   if (confirm('Yes - Go for reset? This will clear all settings and notes.')) {
@@ -647,7 +689,7 @@ document.getElementById('btnExport').addEventListener('click', function() {
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'roster-' + fmtDate(new Date()) + '.json';
+  a.download = 'roster8-' + fmtDate(new Date()) + '.json';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -658,7 +700,10 @@ document.getElementById('btnExport').addEventListener('click', function() {
 populateDropdowns();
 loadData();
 
+// If no saved data, ensure start date is today
 if (!localStorage.getItem(STORAGE_KEY)) {
+  config.start = fmtDate(new Date());
+  document.getElementById('startDate').value = config.start;
   saveData();
   showScreen('screenSetup');
 } else {
